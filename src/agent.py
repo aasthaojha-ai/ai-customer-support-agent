@@ -2,7 +2,6 @@ import os
 import sys
 import json
 from typing import List, Dict, Any
-from openai import OpenAI
 
 # Append current directory to path to ensure robust relative imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -10,11 +9,23 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import config
 from schemas import AssistantResponse, ConversationSummary
 
-# Initialize OpenAI client with the validated key
+# Safely import OpenAI to allow running entirely offline/without the package
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+
+# Initialize OpenAI client with the validated key if available and not in mock mode
 api_key = config.validate_config()
 client = None
-if not config.MOCK_MODE:
-    client = OpenAI(api_key=api_key)
+if OPENAI_AVAILABLE and not config.MOCK_MODE:
+    try:
+        client = OpenAI(api_key=api_key)
+    except Exception:
+        config.MOCK_MODE = True
+else:
+    config.MOCK_MODE = True
 
 # Recommended default model that is highly capable and supports native Pydantic structured outputs
 DEFAULT_MODEL = "gpt-4o-mini"
