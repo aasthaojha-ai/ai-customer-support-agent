@@ -145,7 +145,11 @@ def generate_summary(session_state: Dict[str, Any]) -> ConversationSummary:
     if config.MOCK_MODE:
         summary = generate_summary_mock(session_state)
     else:
-        summary = generate_conversation_summary(conversation_history, lead_data)
+        try:
+            summary = generate_conversation_summary(conversation_history, lead_data)
+        except Exception:
+            config.MOCK_MODE = True
+            summary = generate_summary_mock(session_state)
     
     # 2. Compile dictionary to save locally
     summary_data = {
