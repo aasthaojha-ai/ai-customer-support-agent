@@ -1,0 +1,15 @@
+# Environment configurations
+.env
+
+# Python build artifacts and cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Local session summary output
+summary.json
