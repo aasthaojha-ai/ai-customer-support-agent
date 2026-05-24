@@ -10,21 +10,27 @@ load_dotenv(dotenv_path=dotenv_path)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
+MOCK_MODE = False
+
 def validate_config() -> str:
     """
     Validates that the required environment variables are set.
-    Exits gracefully if OPENAI_API_KEY is missing or the placeholder value.
+    If the key is missing or is the default placeholder, automatically sets MOCK_MODE
+    to True to run the application offline using simulated AI responses.
     """
+    global MOCK_MODE
     key = os.getenv("OPENAI_API_KEY")
-    if not key or key.strip() == "" or key.strip() == "your_openai_api_key_here":
-        print("[bold red]Configuration Error:[/bold red]")
-        print("OPENAI_API_KEY is not set in the environment or .env file.")
-        print("\nPlease do one of the following:")
-        print("  1. Update the '.env' file in this directory with your actual OpenAI API Key.")
-        print("  2. Set it in your environment: 'set OPENAI_API_KEY=your_key' (Windows) or 'export OPENAI_API_KEY=your_key' (bash).")
-        print("-" * 60)
-        sys.exit(1)
+    
+    # Check for empty, missing, or default placeholder key
+    if not key or key.strip() == "" or key.strip() in [
+        "your_openai_api_key_here", 
+        "your_api_key_here"
+    ]:
+        MOCK_MODE = True
+        return "mock-openai-key-for-local-demo"
+        
     return key
+
 
 # =====================================================================
 # Standard Operating Procedure (SOP) Grounding Data for the AI Agent

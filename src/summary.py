@@ -12,7 +12,9 @@ from schemas import ConversationSummary
 
 # Initialize OpenAI client with the validated key
 api_key = config.validate_config()
-client = OpenAI(api_key=api_key)
+client = None
+if not config.MOCK_MODE:
+    client = OpenAI(api_key=api_key)
 
 # Recommended default model that is highly capable and supports native Pydantic structured outputs
 DEFAULT_MODEL = "gpt-4o-mini"
@@ -62,18 +64,77 @@ Analyze the following conversation transcript between a Customer and our AI Supp
         )
 
 
-def generate_summary(session_state: Dict[str, Any]) -> ConversationSummary:
+def generate_summary_mock(session_state: Dict[str, Any]) -> ConversationSummary:
     """
-    Stage 4: Post-Interaction Conversation Summary.
-    Accepts the entire session state dictionary, makes one last LLM call to generate 
-    a clean structured summary, and automatically saves the results locally to 'summary.json'
-    at the project root directory.
+    Generates a structured final summary locally for demo offline run.
+    Parses conversation history to extract SOP gaps, intent, and next actions.
     """
     conversation_history = session_state.get("conversation_history", [])
     lead_data = session_state.get("lead_data", {})
     
-    # 1. Call the LLM to get the structured summary
-    summary = generate_conversation_summary(conversation_history, lead_data)
+    # Defaults
+    customer_intent = "Inquiry regarding clinic services and appointment booking."
+    sop_gaps = []
+    
+    # Analyze conversation history locally
+    for msg in conversation_history:
+        if msg["role"] == "user":
+            content = msg["content"].lower()
+            if "pregnancy" in content or "safe" in content:
+                customer_intent = "Medical safety query about Botox treatment suitability."
+                sop_gaps.append("Is Botox safe during pregnancy? (Medical suitability query)")
+            elif "pain" in content or "hurt" in content:
+                customer_intent = "Query regarding Botox procedure discomfort and safety."
+                sop_gaps.append("Does the procedure hurt? (Discomfort query)")
+            elif "location" in content or "where" in content:
+                sop_gaps.append("Clinic physical location details / Parking options")
+            elif "brand" in content:
+                sop_gaps.append("Which Botox brands are used by the clinic")
+            elif "complain" in content or "angry" in content:
+                customer_intent = "Customer complaint handoff."
+                
+    # Compile recommended next actions
+    next_actions = []
+    if session_state.get("is_escalated"):
+        reason = session_state.get("escalation_reason", "")
+        if "Medical" in reason:
+            next_actions.append("Have a qualified medical practitioner contact the patient regarding safety/pain queries.")
+        elif "complaint" in reason or "human" in reason:
+            next_actions.append("Have a clinic manager contact the customer immediately to resolve their complaint.")
+        elif "SOP" in reason or "2 questions" in reason:
+            next_actions.append("Provide details on clinic location, practitioner credentials, and Botox brands to the client.")
+        else:
+            next_actions.append("Contact the customer to address their outstanding queries.")
+    else:
+        name = lead_data.get("name", "Customer")
+        treatment = lead_data.get("treatment_of_interest", "desired treatment")
+        contact = lead_data.get("phone_or_email", "provided contact info")
+        next_actions.append(f"Call {name} on {contact} to schedule their {treatment} session.")
+        next_actions.append("Send clinic welcome pack and address details via SMS/Email.")
+
+    return ConversationSummary(
+        customer_intent=customer_intent,
+        details_collected=lead_data,
+        sop_gaps=sop_gaps or ["None (all queries answered within clinic SOP)"],
+        next_actions=next_actions
+    )
+
+
+def generate_summary(session_state: Dict[str, Any]) -> ConversationSummary:
+    """
+    Stage 4: Post-Interaction Conversation Summary.
+    Accepts the entire session state dictionary, makes one last LLM call or mock call 
+    to generate a clean structured summary, and automatically saves the results 
+    locally to 'summary.json' at the project root directory.
+    """
+    conversation_history = session_state.get("conversation_history", [])
+    lead_data = session_state.get("lead_data", {})
+    
+    # 1. Call the LLM or Mock to get the structured summary
+    if config.MOCK_MODE:
+        summary = generate_summary_mock(session_state)
+    else:
+        summary = generate_conversation_summary(conversation_history, lead_data)
     
     # 2. Compile dictionary to save locally
     summary_data = {

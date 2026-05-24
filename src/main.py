@@ -45,6 +45,8 @@ def print_welcome_banner():
     table.add_row("Consultation", config.SERVICES["Consultations"])
     table.add_row("Booking Policy", "WhatsApp or Website | 24hr cancellation policy")
     console.print(table)
+    if config.MOCK_MODE:
+        console.print("[bold yellow]*** RUNNING IN LOCAL MOCK DEMO MODE (NO OPENAI KEY REQUIRED) ***[/bold yellow]\n")
     console.print("[dim white]Type 'exit' or 'quit' at any time to end the session.[/dim white]\n")
 
 
